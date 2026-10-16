@@ -1,0 +1,54 @@
+name: Check templates
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        framework: [livekit, pipecat]
+    defaults:
+      run:
+        working-directory: ${{ matrix.framework }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - name: Install
+        run: uv sync
+      - name: Lint
+        run: uv run --group dev ruff check . && uv run --group dev ruff format --check .
+      - name: Import every template
+        run: |
+          for t in speech speech_router speech_router_byok smoke; do
+            uv run python -c "import $t" && echo "imported $t"
+          done
+      # Live checks call SLNG and OpenAI. They run only when the repository has the
+      # secrets. SLNG_ROUTER_API_KEY is a key from an Execution Layer project in
+      # SLNG_REGION; without it the router templates are skipped.
+      - name: Smoke, SLNG speech
+        if: ${{ env.SLNG_API_KEY != '' && env.OPENAI_API_KEY != '' }}
+        env:
+          SLNG_API_KEY: ${{ secrets.SLNG_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          SLNG_REGION: eu-north
+        run: uv run python smoke.py speech
+      - name: Smoke, Context Router
+        if: ${{ env.SLNG_ROUTER_API_KEY != '' && env.OPENAI_API_KEY != '' }}
+        env:
+          SLNG_ROUTER_API_KEY: ${{ secrets.SLNG_ROUTER_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          SLNG_REGION: eu-north
+        run: |
+          export SLNG_API_KEY="$SLNG_ROUTER_API_KEY"
+          uv run python smoke.py speech_router_byok
+          uv run python smoke.py speech_router
+    env:
+      SLNG_API_KEY: ${{ secrets.SLNG_API_KEY }}
+      SLNG_ROUTER_API_KEY: ${{ secrets.SLNG_ROUTER_API_KEY }}
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
