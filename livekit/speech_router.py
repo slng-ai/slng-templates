@@ -27,9 +27,9 @@ REGION = os.getenv("SLNG_REGION", "eu-north")
 # One stable ID per agent. It scopes the router cache: change it when you change
 # the prompt in a meaningful way, for example wayne-concierge-v2.
 AGENT_ID = os.getenv("SLNG_AGENT_ID", "wayne-concierge-v1")
-# slng/auto answers with your project's model. Or name one model of that
-# configuration to pin it.
-MODEL = os.getenv("SLNG_ROUTER_MODEL", "slng/auto")
+# slng/auto answers with the model chosen in your project's Think section. Send it
+# whenever the request carries no slng_config: the router owns the model choice.
+MODEL = "slng/auto"
 
 # The router fills {{company_name}} from template_variables. The cached answer keeps
 # the placeholder, so every caller can share it.
