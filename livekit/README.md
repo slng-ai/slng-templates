@@ -28,3 +28,4 @@ uv run python speech.py dev          # connect to your LiveKit server (LIVEKIT_*
 - **`max_retries=0`** on the router's `AsyncOpenAI` client. The router fails over between models itself.
 - **`extra_body`** carries the router's own fields: `slng_config` for inline BYOK, `template_variables` for `{{name}}` placeholders in the prompt.
 - **`session.say(GREETING)`** speaks a fixed greeting without a model request.
+- **`call_variables()`** in the router templates builds this call's `template_variables`: the values for `{{company_name}}` and `{{caller_name}}` in the prompt. Pass the caller's real name from your CRM or dispatch, and keep steering values such as the reply language in the prompt itself.

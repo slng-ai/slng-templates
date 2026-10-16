@@ -45,21 +45,36 @@ AGENT_ID = os.getenv("SLNG_AGENT_ID", "wayne-concierge-v1")
 # whenever the request carries no slng_config: the router owns the model choice.
 MODEL = "slng/auto"
 
-# The router fills {{company_name}} from template_variables. The cached answer keeps
-# the placeholder, so every caller can share it.
+# {{company_name}} and {{caller_name}} are template variables: the router fills them
+# from the template_variables each request sends. The cached answer keeps the
+# placeholders, so callers with different names can share it.
 INSTRUCTIONS = (
-    "You are the front desk of {{company_name}}. Keep replies short: they are spoken aloud."
+    "You are the front desk of {{company_name}}, speaking with {{caller_name}}. "
+    "Keep replies short: they are spoken aloud."
 )
 GREETING = "Hi, how can I help you today?"
 
 TRANSPORTS = {"webrtc": lambda: TransportParams(audio_in_enabled=True, audio_out_enabled=True)}
 
 
-def services(session_id: str) -> tuple[SlngSTTService, OpenAILLMService, SlngTTSService]:
+def call_variables(caller_name: str) -> dict[str, str]:
+    """Return this call's values for the placeholders in INSTRUCTIONS.
+
+    Send values that are spoken or echoed, like names. Never send a value that changes
+    what the answer says, such as the reply language: write that into the prompt.
+    A placeholder with no value makes the router answer 422.
+    """
+    return {"company_name": "Wayne Enterprises", "caller_name": caller_name}
+
+
+def services(
+    session_id: str, variables: dict[str, str]
+) -> tuple[SlngSTTService, OpenAILLMService, SlngTTSService]:
     """Build the STT, LLM, and TTS for one call.
 
     Args:
         session_id: One ID per call, the same on every turn of that call.
+        variables: This call's template variables, from call_variables().
     """
     stt = SlngSTTService(
         api_key=os.environ["SLNG_API_KEY"],
@@ -80,7 +95,7 @@ def services(session_id: str) -> tuple[SlngSTTService, OpenAILLMService, SlngTTS
             model=MODEL,
             system_instruction=INSTRUCTIONS,
             # Pipecat passes extra to the OpenAI client; extra_body adds body fields.
-            extra={"extra_body": {"template_variables": {"company_name": "Wayne Enterprises"}}},
+            extra={"extra_body": {"template_variables": variables}},
         ),
     )
     tts = SlngTTSService(
@@ -99,7 +114,7 @@ async def bot(runner_args: RunnerArguments) -> None:
     """Run one call."""
     session_id = str(uuid.uuid4())  # one per call; your call or room ID works too
     transport = await create_transport(runner_args, TRANSPORTS)
-    stt, llm, tts = services(session_id)
+    stt, llm, tts = services(session_id, call_variables("Bruce"))  # from your CRM or dispatch
     aggregators = LLMContextAggregatorPair(
         LLMContext(), user_params=LLMUserAggregatorParams(vad_analyzer=SileroVADAnalyzer())
     )

@@ -39,6 +39,24 @@ Every template sends two IDs with each request, to speech to text, the LLM, and 
 
 The router rejects a request without them with `400 missing_client_id`. On the speech plugins they are `external_agent_id` and `external_session_id`; on the router they are the `X-Slng-Agent-Id` and `X-Slng-Session-Id` headers.
 
+## Template variables
+
+The router templates write per-call values into the prompt as placeholders, and the router fills them in:
+
+```python
+INSTRUCTIONS = "You are the front desk of {{company_name}}, speaking with {{caller_name}}. ..."
+
+def call_variables(caller_name: str) -> dict[str, str]:
+    return {"company_name": "Wayne Enterprises", "caller_name": caller_name}
+```
+
+Each request sends the values as `template_variables` in its body. Build them once per call, when you know who is calling, and pass them in with the session ID. The model sees the filled prompt, while the cached answer keeps the placeholders, so callers with different names can share it.
+
+- Use them for values that are spoken or echoed: names, a company, an appointment time.
+- Never use them for a value that changes what the answer says, such as the reply language. Write that into the prompt.
+- Every `{{name}}` in the prompt needs a value, or the router answers `422 missing_template_variables`.
+- `speech.py` calls OpenAI directly, so nothing fills placeholders there. Write the values into its prompt yourself.
+
 ## Run one
 
 ```bash
