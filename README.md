@@ -27,7 +27,7 @@ These templates are for the third kind. `speech.py` also works with a models-onl
 1. In [app.slng.ai](https://app.slng.ai), click **New project**, choose **Improve my agent**, and pick **LiveKit** or **Pipecat**.
 2. Choose what runs on SLNG. **Voice in, voice out** runs speech to text and text to speech on SLNG and keeps your LLM. **Use your orchestrator, we handle the rest** adds SLNG LLMs.
 3. Pick the **Region**. The project's API keys only work there, so set `SLNG_REGION` to the same region's code. For example, **Netherlands** is `eu-north` and **United Kingdom** is `gb`. Codes are on the [regions map](https://docs.slng.ai/guides/regions/regions-map).
-4. For `speech_router.py`, open **Execution Layer** > **Think** and choose a model: one from the **SLNG models** tab, or your own from the **BYOK** tab (**Add new key** registers it). `speech_router_byok.py` skips this step: it sends the model and your key with every request.
+4. For `speech_router.py`, open **Execution Layer** > **Think** and choose a model: one from the **SLNG models** tab, or your own from the **BYOK** tab (**Add new key** registers it). `speech_router_byok.py` skips this step: it sends the model and your key with every request. `speech_router.py` sends `"model": "slng/auto"`, so the router answers with the model you chose here. Name a model only when the request carries its own `slng_config`, as `speech_router_byok.py` does.
 5. Open **Project Vault** > **SLNG API key** > **Create API key**. Copy the key: you only see it once.
 
 ## Agent ID and session ID
@@ -38,6 +38,24 @@ Every template sends two IDs with each request, to speech to text, the LLM, and 
 - **Session ID**: one value per call, the same on every turn of that call. The templates make a UUID when the call starts. Your room, call, or conversation ID works too.
 
 The router rejects a request without them with `400 missing_client_id`. On the speech plugins they are `external_agent_id` and `external_session_id`; on the router they are the `X-Slng-Agent-Id` and `X-Slng-Session-Id` headers.
+
+## Template variables
+
+The router templates write per-call values into the prompt as placeholders, and the router fills them in:
+
+```python
+INSTRUCTIONS = "You are the front desk of {{company_name}}, speaking with {{caller_name}}. ..."
+
+def call_variables(caller_name: str) -> dict[str, str]:
+    return {"company_name": "Wayne Enterprises", "caller_name": caller_name}
+```
+
+Each request sends the values as `template_variables` in its body. Build them once per call, when you know who is calling, and pass them in with the session ID. The model sees the filled prompt, while the cached answer keeps the placeholders, so callers with different names can share it.
+
+- Use them for values that are spoken or echoed: names, a company, an appointment time.
+- Never use them for a value that changes what the answer says, such as the reply language. Write that into the prompt.
+- Every `{{name}}` in the prompt needs a value, or the router answers `422 missing_template_variables`.
+- `speech.py` calls OpenAI directly, so nothing fills placeholders there. Write the values into its prompt yourself.
 
 ## Run one
 

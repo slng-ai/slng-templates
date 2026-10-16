@@ -5,7 +5,8 @@ It builds the template's STT, LLM, and TTS, then:
 1. speaks a caller line with the TTS,
 2. transcribes that audio with the STT,
 3. asks the LLM for a reply, printing the router's ``x-slng-*`` headers,
-4. speaks the reply with the TTS.
+4. speaks the reply with the TTS,
+5. for a router template, asks the caller's name, which only template_variables give.
 
 Usage::
 
@@ -41,6 +42,7 @@ from pipecat.processors.frame_processor import FrameDirection, FrameProcessor
 from pipecat.workers.runner import WorkerRunner
 
 CALLER_LINE = "Hello, what are your opening hours on Saturday?"
+NAME_QUESTION = "What is my name? Answer with the name only."
 RATE = 16000
 
 
@@ -128,7 +130,8 @@ async def main(name: str) -> None:
     template = importlib.import_module(name)
     session_id = str(uuid.uuid4())
     # A Pipecat service runs in one pipeline, so each step gets fresh services.
-    stt, llm, tts = template.services(session_id)
+    extra = (template.call_variables("Bruce"),) if hasattr(template, "call_variables") else ()
+    stt, llm, tts = template.services(session_id, *extra)
     headers = watch_router(llm)
 
     caller_audio = await speak(tts, CALLER_LINE)
@@ -154,9 +157,18 @@ async def main(name: str) -> None:
     assert reply, "LLM returned no text"
     assert "{{" not in reply, "a template variable was not filled"
 
-    reply_audio = await speak(template.services(session_id)[2], reply)
+    reply_audio = await speak(template.services(session_id, *extra)[2], reply)
     print(f"TTS audio:    {len(reply_audio) / 2 / RATE:.1f}s")
     assert reply_audio, "TTS returned no audio"
+
+    if extra:
+        context.add_message({"role": "assistant", "content": reply})
+        context.add_message({"role": "user", "content": NAME_QUESTION})
+        llm = template.services(session_id, *extra)[1]
+        out = await run(llm, [LLMContextFrame(context)], LLMFullResponseEndFrame)
+        answer = "".join(f.text for f in out if isinstance(f, LLMTextFrame)).strip()
+        print(f"name check:   {answer!r}")
+        assert "Bruce" in answer, "the router did not fill {{caller_name}}"
     print(f"OK: {name}")
 
 

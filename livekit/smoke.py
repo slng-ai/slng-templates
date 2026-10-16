@@ -5,7 +5,8 @@ It builds the template's ``AgentSession``, then:
 1. speaks a caller line with the session's TTS,
 2. transcribes that audio with the session's STT,
 3. asks the session's LLM for a reply, printing the router's ``x-slng-*`` headers,
-4. speaks the reply with the session's TTS.
+4. speaks the reply with the session's TTS,
+5. for a router template, asks the caller's name, which only template_variables give.
 
 Usage::
 
@@ -25,6 +26,7 @@ from livekit.agents import llm, stt
 from livekit.agents.utils import http_context
 
 CALLER_LINE = "Hello, what are your opening hours on Saturday?"
+NAME_QUESTION = "What is my name? Answer with the name only."
 
 
 async def speak(session_tts, text: str) -> list[rtc.AudioFrame]:  # noqa: ANN001
@@ -88,7 +90,8 @@ async def main(name: str) -> None:
     template = importlib.import_module(name)
     http_context._new_session_ctx()
     try:
-        session = template.build_session(str(uuid.uuid4()))
+        extra = (template.call_variables("Bruce"),) if hasattr(template, "call_variables") else ()
+        session = template.build_session(str(uuid.uuid4()), *extra)
         headers = watch_router(session.llm)
 
         caller_audio = await speak(session.tts, CALLER_LINE)
@@ -118,6 +121,17 @@ async def main(name: str) -> None:
         reply_audio = await speak(session.tts, reply)
         print(f"TTS audio:    {seconds(reply_audio):.1f}s")
         assert reply_audio, "TTS returned no audio"
+
+        if extra:
+            chat.add_message(role="assistant", content=reply)
+            chat.add_message(role="user", content=NAME_QUESTION)
+            answer = ""
+            async with session.llm.chat(chat_ctx=chat) as stream:
+                async for chunk in stream:
+                    if chunk.delta and chunk.delta.content:
+                        answer += chunk.delta.content
+            print(f"name check:   {answer!r}")
+            assert "Bruce" in answer, "the router did not fill {{caller_name}}"
         print(f"OK: {name}")
     finally:
         await http_context._close_http_ctx()
