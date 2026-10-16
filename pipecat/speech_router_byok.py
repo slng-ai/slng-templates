@@ -2,7 +2,8 @@
 
 Every request carries ``slng_config``: the model, its endpoint, and your provider key.
 The router answers with it, whatever the project's Think section holds. Nothing to set
-up in the dashboard for the LLM.
+up in the dashboard for the LLM. The model is named once, in ``slng_config``: the
+request asks for ``slng/auto``, and the router picks from the config it carries.
 
 Needs a key from a project on the Execution Layer ("Improve my agent" > Pipecat),
 created in the same region as ``SLNG_REGION``, and your ``OPENAI_API_KEY``.
@@ -60,7 +61,14 @@ def router_config() -> dict:
         "url": "https://api.openai.com/v1",
         "api_key": os.environ["OPENAI_API_KEY"],  # your provider key, not your SLNG key
     }
-    return {"tiers": {"1": [{"model": MODEL, "weight": 100, "priority": 0, "endpoint": endpoint}]}}
+    entry = {
+        "model": MODEL,  # the only place the model is named; the router sends it to OpenAI
+        "weight": 100,
+        "endpoint": endpoint,
+        # Request settings for this model. Drop it for a model without reasoning.
+        "kwargs": {"reasoning_effort": "none"},
+    }
+    return {"tiers": {"1": [entry]}}
 
 
 TRANSPORTS = {"webrtc": lambda: TransportParams(audio_in_enabled=True, audio_out_enabled=True)}
@@ -101,7 +109,7 @@ def services(
             "X-Slng-Session-Id": session_id,  # one per call
         },
         settings=OpenAILLMService.Settings(
-            model=MODEL,
+            model="slng/auto",  # picks from slng_config below
             system_instruction=INSTRUCTIONS,
             # Pipecat passes extra to the OpenAI client; extra_body adds body fields.
             extra={
