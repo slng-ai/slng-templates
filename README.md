@@ -27,7 +27,7 @@ These templates are for the third kind. `speech.py` also works with a models-onl
 1. In [app.slng.ai](https://app.slng.ai), click **New project**, choose **Improve my agent**, and pick **LiveKit** or **Pipecat**.
 2. Choose what runs on SLNG. **Voice in, voice out** runs speech to text and text to speech on SLNG and keeps your LLM. **Use your orchestrator, we handle the rest** adds SLNG LLMs.
 3. Pick the **Region**. The project's API keys only work there, so set `SLNG_REGION` to the same region's code. For example, **Netherlands** is `eu-north` and **United Kingdom** is `gb`. Codes are on the [regions map](https://docs.slng.ai/guides/regions/regions-map).
-4. For `speech_router.py`, open **Execution Layer** > **Think** and choose a model: one from the **SLNG models** tab, or your own from the **BYOK** tab (**Add new key** registers it). `speech_router_byok.py` skips this step: it sends the model and your key with every request. `speech_router.py` sends `"model": "slng/auto"`, so the router answers with the model you chose here. Name a model only when the request carries its own `slng_config`, as `speech_router_byok.py` does.
+4. For `speech_router.py`, open **Execution Layer** > **Think** and choose a model: one from the **SLNG models** tab, or your own from the **BYOK** tab (**Add new key** registers it). `speech_router_byok.py` skips this step: it sends the model and your key with every request. Both router templates send `"model": "slng/auto"`: `speech_router.py` gets the model you chose here, and `speech_router_byok.py` gets the one named in its `slng_config`, so the model is written in one place only.
 5. Open **Project Vault** > **SLNG API key** > **Create API key**. Copy the key: you only see it once.
 
 ## Agent ID and session ID
