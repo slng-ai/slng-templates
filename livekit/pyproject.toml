@@ -1,0 +1,22 @@
+[project]
+name = "slng-livekit-templates"
+version = "0.1.0"
+description = "LiveKit agents on SLNG speech to text, text to speech, and the Context Router"
+requires-python = ">=3.10"
+dependencies = [
+    "livekit-agents[openai,silero]~=1.8.8",
+    "livekit-plugins-slng~=1.8.8",
+    "python-dotenv>=1.0",
+]
+
+[tool.uv]
+package = false
+
+[dependency-groups]
+dev = ["ruff>=0.15"]
+
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "SIM"]
